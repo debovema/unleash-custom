@@ -39,6 +39,9 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.settings.Settings;
+import org.apache.maven.settings.io.DefaultSettingsWriter;
+import org.apache.maven.settings.io.SettingsWriter;
 import org.apache.maven.shared.invoker.DefaultInvocationRequest;
 import org.apache.maven.shared.invoker.DefaultInvoker;
 import org.apache.maven.shared.invoker.InvocationRequest;
@@ -80,6 +83,9 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 	private String mavenHome;
 
 	@Inject
+	private Settings settings;
+
+	@Inject
 	private Logger log;
 
 	private Map<MavenProject, Document> cachedPOMs;
@@ -93,13 +99,30 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 	private Pattern p3;
 
 	private int qualifier;
+	private Boolean signGPG;
 
 	private CommonMojo propertiesManager;
+
+	private File tempSettingsFile;
+
 
 	@Override
 	public void execute(ExecutionContext context) throws MojoExecutionException, MojoFailureException {
 		this.log.info("Perform replacement in POMs.");
 
+	    if (context.hasUnmappedData()) {
+	        this.log.info("This step has unmapped execution data!");
+	        for (String date : context.getUnmappedData()) {
+	          this.log.debug("\t" + date);
+	        }
+	      }
+
+	      if (context.hasMappedData()) {
+	        this.log.info("This step has mapped execution data!");
+	        for (String key : context.getMappedDataKeys()) {
+	          this.log.debug("\t" + key + '=' + context.getMappedDate(key));
+	        }
+	      }
 		// prepare for rollback
 		this.cachedPOMs = Maps.newHashMap();
 		for (MavenProject p : this.reactorProjects) {
@@ -108,7 +131,13 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 
 	    // retrieve qualifier (for instance the 1 in genericReplacer[1])
 		String _qualifier = context.getQualifier() != null ? context.getQualifier() : "1";
+		String _signGPG = "false";
+		if (_qualifier.contains(",")) {
+			_signGPG = _qualifier.substring(_qualifier.indexOf(",")+1).trim();
+			_qualifier = _qualifier.substring(0, _qualifier.indexOf(",")).trim();
+		}
 		qualifier = Integer.parseInt(_qualifier); // TODO: handle parse error
+		signGPG = new Boolean(_signGPG);
 		this.log.info("Step number is " + qualifier);
 
 		try {
@@ -117,16 +146,18 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 
 				doReplace(p.getFile(), RegexpUtil.asOptions(""));
 
-				if (p.isExecutionRoot()) {
+				if (p.isExecutionRoot() && signGPG) {
 					signGPG(p);
 				}
 			}
 		} catch (Throwable t) {
 			throw new MojoFailureException("Could not perform replacement in POMs.", t);
+		} finally {
+			deleteTempSettings();
 		}
 	}
 
-	private void signGPG(MavenProject p) throws MojoExecutionException, MavenInvocationException, MojoFailureException {
+	private void signGPG(MavenProject p) throws MojoExecutionException, MavenInvocationException, MojoFailureException, IOException {
 		InvocationRequest request = getInvocationRequest(p);
 		Invoker invoker = getInvoker();
 
@@ -148,15 +179,36 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 			this.log.debug("\tUsing maven home: " + calculatedMavenHome.getAbsolutePath());
 			invoker.setMavenHome(calculatedMavenHome);
 		}
+		invoker.setOutputHandler(null);
 		return invoker;
 	}
 
-	private InvocationRequest getInvocationRequest(MavenProject p) throws MojoExecutionException {
+	private InvocationRequest getInvocationRequest(MavenProject p) throws MojoExecutionException, IOException {
 		InvocationRequest request = new DefaultInvocationRequest();
 		request.setPomFile(p.getFile());
 		request.setGoals(Lists.newArrayList("gpg:sign"));
 		request.setRecursive(false);
+	    this.tempSettingsFile = createAndSetTempSettings(request);
 		return request;
+	}
+
+	private File createAndSetTempSettings(InvocationRequest request) throws MojoExecutionException, IOException {
+		SettingsWriter settingsWriter = new DefaultSettingsWriter();
+		File settingsFile = File.createTempFile("settings", null);
+		try {
+			settingsWriter.write(settingsFile, null, this.settings);
+		} catch (IOException e) {
+			throw new MojoExecutionException("Unable to store Maven settings for release build", e);
+		}
+		request.setUserSettingsFile(settingsFile);
+		return settingsFile;
+	}
+
+	private void deleteTempSettings() {
+		if (this.tempSettingsFile != null && this.tempSettingsFile.exists()) {
+			this.tempSettingsFile.delete();
+			this.tempSettingsFile = null;
+		}
 	}
 
 	protected void doReplace(File f, int options) throws IOException, MojoExecutionException {
@@ -290,6 +342,7 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 			for (Entry<MavenProject, Document> entry : this.cachedPOMs.entrySet()) {
 				PomUtil.writePOM(entry.getValue(), entry.getKey());
 			}
+			deleteTempSettings();
 		} catch (Throwable t) {
 			throw new MojoExecutionException("Could not rollback in POMs.", t);
 		}
