@@ -26,9 +26,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -58,6 +60,7 @@ import org.w3c.dom.Document;
 import com.google.common.base.Optional;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.io.Files;
 import com.itemis.maven.plugins.cdi.CDIMojoProcessingStep;
 import com.itemis.maven.plugins.cdi.ExecutionContext;
 import com.itemis.maven.plugins.cdi.annotations.ProcessingStep;
@@ -146,7 +149,8 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 
 				doReplace(p.getFile(), RegexpUtil.asOptions(""));
 
-				if (p.isExecutionRoot() && signGPG) {
+//				if (p.isExecutionRoot() && signGPG) {
+				if (signGPG) {
 					signGPG(p);
 				}
 			}
@@ -170,6 +174,23 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 				throw new MojoFailureException("Error during project build: " + result.getExitCode());
 			}
 		}
+		if (!p.isExecutionRoot()) {
+			File gpgTempDirectory = null;
+			try {
+				URL gpgTempDirectoryURL = new URL(request.getProperties().get("url").toString());
+				gpgTempDirectory = new File(gpgTempDirectoryURL.getFile());
+				File pomGpgSignature = new File(gpgTempDirectory, p.getGroupId().replaceAll("\\.", "/") + "/" + p.getArtifactId() + "/" + p.getVersion() + "/" + p.getArtifactId() + "-" + p.getVersion() + ".pom.asc");
+				org.apache.commons.io.FileUtils.copyFile(pomGpgSignature, new File(p.getBuild().getDirectory(), pomGpgSignature.getName()));
+			} finally {
+				if (gpgTempDirectory != null && gpgTempDirectory.exists()) {
+					org.apache.commons.io.FileUtils.deleteDirectory(gpgTempDirectory);
+				}
+				File ascFile = new File(p.getFile().getParentFile(), "pom.xml.asc");
+				if (ascFile.exists()) {
+					ascFile.delete();
+				}
+			}
+		}
 	}
 
 	private Invoker getInvoker() {
@@ -179,14 +200,28 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 			this.log.debug("\tUsing maven home: " + calculatedMavenHome.getAbsolutePath());
 			invoker.setMavenHome(calculatedMavenHome);
 		}
-		invoker.setOutputHandler(null);
+//		invoker.setOutputHandler(null);
 		return invoker;
 	}
 
 	private InvocationRequest getInvocationRequest(MavenProject p) throws MojoExecutionException, IOException {
 		InvocationRequest request = new DefaultInvocationRequest();
 		request.setPomFile(p.getFile());
-		request.setGoals(Lists.newArrayList("gpg:sign"));
+		if (p.isExecutionRoot()) {
+			request.setGoals(Lists.newArrayList("gpg:sign"));
+		} else {
+			File gpgDirectory = Files.createTempDir();
+			request.setGoals(Lists.newArrayList("gpg:sign-and-deploy-file"));
+			Properties properties = new Properties();
+			properties.put("file", p.getFile().getAbsolutePath());
+//			properties.put("pomFile", p.getFile().getAbsolutePath());
+			properties.put("groupId", p.getGroupId());
+			properties.put("artifactId", p.getArtifactId());
+			properties.put("version", p.getVersion());
+			properties.put("repositoryId", "null");
+			properties.put("url", gpgDirectory.toURI().toURL().toString());
+			request.setProperties(properties);
+		}
 		request.setRecursive(false);
 	    this.tempSettingsFile = createAndSetTempSettings(request);
 		return request;
