@@ -180,7 +180,9 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 				URL gpgTempDirectoryURL = new URL(request.getProperties().get("url").toString());
 				gpgTempDirectory = new File(gpgTempDirectoryURL.getFile());
 				File pomGpgSignature = new File(gpgTempDirectory, p.getGroupId().replaceAll("\\.", "/") + "/" + p.getArtifactId() + "/" + p.getVersion() + "/" + p.getArtifactId() + "-" + p.getVersion() + ".pom.asc");
-				org.apache.commons.io.FileUtils.copyFile(pomGpgSignature, new File(p.getBuild().getDirectory(), pomGpgSignature.getName()));
+				File gpgSignatureDest = new File(p.getBuild().getDirectory(), pomGpgSignature.getName());
+				pomGpgSignature = new File(p.getFile().getParentFile(), "pom.xml.asc");
+				org.apache.commons.io.FileUtils.copyFile(pomGpgSignature, gpgSignatureDest);
 			} finally {
 				if (gpgTempDirectory != null && gpgTempDirectory.exists()) {
 					org.apache.commons.io.FileUtils.deleteDirectory(gpgTempDirectory);
@@ -246,15 +248,16 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 		}
 	}
 
-	protected void doReplace(File f, int options) throws IOException, MojoExecutionException {
+	protected boolean doReplace(File f, int options) throws IOException, MojoExecutionException {
 		File temp = File.createTempFile("replace", null);
 
 		p1 = Pattern.compile("(\\s+)(.*) <!-- unleash: (.*) -->");
 		p2 = Pattern.compile("([^ ]+)+");
 		p3 = Pattern.compile("(\\d+)=(.*)");
 
+		boolean changes = false;
+
 		try {
-			boolean changes = false;
 			FileInputStream is = new FileInputStream(f);
 
 			try {
@@ -334,8 +337,9 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 			if (temp != null) {
 				temp.delete();
 			}
-
 		}
+
+		return changes;
 	}
 
 	private boolean replaceAndWrite(String s, Writer w, int options) throws IOException {
