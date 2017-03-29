@@ -145,13 +145,15 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 
 		try {
 			for (MavenProject p : this.reactorProjects) {
+				System.out.println(p.getProperties().getProperty("siteURL"));
 				propertiesManager = CommonMojo.propertiesManager(session, p);
 
-				doReplace(p.getFile(), RegexpUtil.asOptions(""));
-
-//				if (p.isExecutionRoot() && signGPG) {
-				if (signGPG) {
-					signGPG(p);
+				if (doReplace(p.getFile(), RegexpUtil.asOptions(""))) {
+					p.getProperties().put("ecosystemVersion", "HELLO");
+//					p.setModel(POMManager.getModelFromPOM(p.getFile()));
+					if (signGPG) {
+						signGPG(p);
+					}
 				}
 			}
 		} catch (Throwable t) {
@@ -202,7 +204,7 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 			this.log.debug("\tUsing maven home: " + calculatedMavenHome.getAbsolutePath());
 			invoker.setMavenHome(calculatedMavenHome);
 		}
-//		invoker.setOutputHandler(null);
+		invoker.setOutputHandler(null);
 		return invoker;
 	}
 
@@ -361,7 +363,7 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 						continue;
 					}
 					String replacement = m3.group(2);
-					replacement = propertiesManager.replaceProperties(replacement);
+					replacement = replaceProperties(replacement);
 					replacement = replacement.replaceAll("&#36;", "\\$");
 
 					res = g1 + replacement + " <!-- unleash: " + g3 + " -->";
@@ -372,6 +374,29 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 		}
 		w.write(res);
 		return !res.equals(s);
+	}
+
+	public String replaceProperties(String string) {
+		if (string == null) return null;
+
+		Matcher m = CommonMojo.mavenPropertyPattern.matcher(string);
+
+		while (m.find()) {
+			StringBuffer sb = new StringBuffer();
+
+			String propertyKey = m.group(1);
+			String propertyValue = propertiesManager.getPropertyValue(propertyKey, false, true, true);
+			if (propertyValue != null) {
+			    m.appendReplacement(sb, Matcher.quoteReplacement(propertyValue));
+			}
+			m.appendTail(sb);
+			if (propertyValue != null) {
+				string = sb.toString();
+				m = CommonMojo.mavenPropertyPattern.matcher(string);
+			}
+		}
+
+		return string;
 	}
 
 	@RollbackOnError
