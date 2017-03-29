@@ -113,19 +113,6 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 	public void execute(ExecutionContext context) throws MojoExecutionException, MojoFailureException {
 		this.log.info("Perform replacement in POMs.");
 
-	    if (context.hasUnmappedData()) {
-	        this.log.info("This step has unmapped execution data!");
-	        for (String date : context.getUnmappedData()) {
-	          this.log.debug("\t" + date);
-	        }
-	      }
-
-	      if (context.hasMappedData()) {
-	        this.log.info("This step has mapped execution data!");
-	        for (String key : context.getMappedDataKeys()) {
-	          this.log.debug("\t" + key + '=' + context.getMappedDate(key));
-	        }
-	      }
 		// prepare for rollback
 		this.cachedPOMs = Maps.newHashMap();
 		for (MavenProject p : this.reactorProjects) {
@@ -148,8 +135,6 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 				propertiesManager = CommonMojo.propertiesManager(session, p);
 
 				if (doReplace(p.getFile(), RegexpUtil.asOptions(""))) {
-					p.getProperties().put("ecosystemVersion", "HELLO");
-//					p.setModel(POMManager.getModelFromPOM(p.getFile()));
 					if (signGPG) {
 						signGPG(p);
 					}
