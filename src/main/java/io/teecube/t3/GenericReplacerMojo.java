@@ -145,7 +145,6 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 
 		try {
 			for (MavenProject p : this.reactorProjects) {
-				System.out.println(p.getProperties().getProperty("siteURL"));
 				propertiesManager = CommonMojo.propertiesManager(session, p);
 
 				if (doReplace(p.getFile(), RegexpUtil.asOptions(""))) {
