@@ -369,7 +369,7 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 			StringBuffer sb = new StringBuffer();
 
 			String propertyKey = m.group(1);
-			String propertyValue = propertiesManager.getPropertyValue(propertyKey, false, true, true);
+			String propertyValue = propertiesManager.getPropertyValue(propertyKey, false, false, true);
 			if (propertyValue != null) {
 			    m.appendReplacement(sb, Matcher.quoteReplacement(propertyValue));
 			}
