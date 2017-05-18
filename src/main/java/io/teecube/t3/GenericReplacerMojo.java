@@ -160,7 +160,7 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 				throw new MojoFailureException("Error during project build: " + result.getExitCode());
 			}
 		}
-		if (!p.isExecutionRoot()) {
+		if (!p.isExecutionRoot() || p.getModel().getModules().isEmpty()) {
 			File gpgTempDirectory = null;
 			try {
 				URL gpgTempDirectoryURL = new URL(request.getProperties().get("url").toString());
@@ -195,7 +195,7 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 	private InvocationRequest getInvocationRequest(MavenProject p) throws MojoExecutionException, IOException {
 		InvocationRequest request = new DefaultInvocationRequest();
 		request.setPomFile(p.getFile());
-		if (p.isExecutionRoot()) {
+		if (p.isExecutionRoot() && !p.getModel().getModules().isEmpty()) {
 			request.setGoals(Lists.newArrayList("gpg:sign"));
 		} else {
 			File gpgDirectory = Files.createTempDir();
