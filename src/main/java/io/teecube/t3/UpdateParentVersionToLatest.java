@@ -127,15 +127,18 @@ public class UpdateParentVersionToLatest implements CDIMojoProcessingStep {
 		request.setGoals(Lists.newArrayList("versions:update-parent"));
 		request.setRecursive(false);
 		request.setOffline(true);
-	    this.tempSettingsFile = createAndSetTempSettings(request);
+		this.tempSettingsFile = createAndSetTempSettings(request);
 		return request;
 	}
 
 	private File createAndSetTempSettings(InvocationRequest request) throws MojoExecutionException, IOException {
 		SettingsWriter settingsWriter = new DefaultSettingsWriter();
+		Settings minimalSettings = new Settings();
+		minimalSettings.setLocalRepository(settings.getLocalRepository());
+		minimalSettings.setOffline(true);
 		File settingsFile = File.createTempFile("settings", null);
 		try {
-			settingsWriter.write(settingsFile, null, this.settings);
+			settingsWriter.write(settingsFile, null, minimalSettings);
 		} catch (IOException e) {
 			throw new MojoExecutionException("Unable to store Maven settings for release build", e);
 		}
