@@ -28,6 +28,9 @@ import javax.inject.Named;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.settings.Settings;
+import org.apache.maven.settings.io.DefaultSettingsWriter;
+import org.apache.maven.settings.io.SettingsWriter;
 import org.apache.maven.shared.invoker.DefaultInvocationRequest;
 import org.apache.maven.shared.invoker.DefaultInvoker;
 import org.apache.maven.shared.invoker.InvocationRequest;
@@ -60,9 +63,14 @@ public class UpdateParentVersionToLatest implements CDIMojoProcessingStep {
 	private String mavenHome;
 
 	@Inject
+	private Settings settings;
+
+	@Inject
 	private Logger log;
 
 	private Map<MavenProject, Document> cachedPOMs;
+
+	private File tempSettingsFile;
 
 	@Override
 	public void execute(ExecutionContext context) throws MojoExecutionException, MojoFailureException {
@@ -83,6 +91,7 @@ public class UpdateParentVersionToLatest implements CDIMojoProcessingStep {
 		} catch (Throwable t) {
 			throw new MojoFailureException("Could not perform replacement in POMs.", t);
 		} finally {
+			deleteTempSettings();
 		}
 	}
 
@@ -117,7 +126,28 @@ public class UpdateParentVersionToLatest implements CDIMojoProcessingStep {
 		request.setPomFile(p.getFile());
 		request.setGoals(Lists.newArrayList("versions:update-parent"));
 		request.setRecursive(false);
+		request.setOffline(true);
+	    this.tempSettingsFile = createAndSetTempSettings(request);
 		return request;
+	}
+
+	private File createAndSetTempSettings(InvocationRequest request) throws MojoExecutionException, IOException {
+		SettingsWriter settingsWriter = new DefaultSettingsWriter();
+		File settingsFile = File.createTempFile("settings", null);
+		try {
+			settingsWriter.write(settingsFile, null, this.settings);
+		} catch (IOException e) {
+			throw new MojoExecutionException("Unable to store Maven settings for release build", e);
+		}
+		request.setUserSettingsFile(settingsFile);
+		return settingsFile;
+	}
+
+	private void deleteTempSettings() {
+		if (this.tempSettingsFile != null && this.tempSettingsFile.exists()) {
+			this.tempSettingsFile.delete();
+			this.tempSettingsFile = null;
+		}
 	}
 
 	@RollbackOnError
@@ -127,6 +157,7 @@ public class UpdateParentVersionToLatest implements CDIMojoProcessingStep {
 			for (Entry<MavenProject, Document> entry : this.cachedPOMs.entrySet()) {
 				PomUtil.writePOM(entry.getValue(), entry.getKey());
 			}
+			deleteTempSettings();
 		} catch (Throwable t) {
 			throw new MojoExecutionException("Could not rollback in POMs.", t);
 		}
