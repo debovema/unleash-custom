@@ -1,5 +1,5 @@
 /**
- * (C) Copyright 2016-2017 teecube
+ * (C) Copyright 2016-2018 teecube
  * (http://teecu.be) and others.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -68,7 +68,7 @@ public class UpdateParentVersionToLatest implements CDIMojoProcessingStep {
 	@Inject
 	private Logger log;
 
-	private Map<MavenProject, Document> cachedPOMs;
+	private Map<MavenProject, Optional<Document>> cachedPOMs;
 
 	private File tempSettingsFile;
 
@@ -157,8 +157,8 @@ public class UpdateParentVersionToLatest implements CDIMojoProcessingStep {
 	public void rollback() throws MojoExecutionException {
 		this.log.info("Rollback parent version in main POM.");
 		try {
-			for (Entry<MavenProject, Document> entry : this.cachedPOMs.entrySet()) {
-				PomUtil.writePOM(entry.getValue(), entry.getKey());
+			for (Entry<MavenProject, Optional<Document>> entry : this.cachedPOMs.entrySet()) {
+				PomUtil.writePOM(entry.getValue().get(), entry.getKey());
 			}
 			deleteTempSettings();
 		} catch (Throwable t) {
