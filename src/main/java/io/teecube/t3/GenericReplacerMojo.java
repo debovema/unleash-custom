@@ -130,6 +130,10 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 		signGPG = new Boolean(_signGPG);
 		this.log.info("Step number is " + qualifier);
 
+		if (qualifier == 1) {
+			this.session.getRequest().getUserProperties().put("ecosystemVersion", "1.0.0");
+		}
+
 		try {
 			for (MavenProject p : this.reactorProjects) {
 				propertiesManager = CommonMojo.propertiesManager(session, p);
