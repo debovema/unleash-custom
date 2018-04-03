@@ -131,11 +131,16 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 		this.log.info("Step number is " + qualifier);
 
 		if (qualifier == 1) {
+			log.info("add ecosystemVersion to user props");
 			this.session.getRequest().getUserProperties().put("ecosystemVersion", "1.0.0");
 		}
 
 		try {
 			for (MavenProject p : this.reactorProjects) {
+				if (qualifier == 1) {
+					log.info("add ecosystemVersion to project");
+					p.getModel().getProperties().put("ecosystemVersion", "1.0.0");
+				}
 				propertiesManager = CommonMojo.propertiesManager(session, p);
 
 				if (doReplace(p.getFile(), RegexpUtil.asOptions(""))) {
