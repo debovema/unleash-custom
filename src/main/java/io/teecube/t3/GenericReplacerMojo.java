@@ -130,16 +130,10 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 		signGPG = new Boolean(_signGPG);
 		this.log.info("Step number is " + qualifier);
 
-		if (qualifier == 1) {
-			log.info("add ecosystemVersion to user props");
-			this.session.getRequest().getUserProperties().put("ecosystemVersion", "1.0.0");
-		}
-
 		try {
 			for (MavenProject p : this.reactorProjects) {
-				if (qualifier == 1) {
-					log.info("add ecosystemVersion to project");
-					p.getModel().getProperties().put("ecosystemVersion", "1.0.0");
+				if (qualifier == 2) {
+					p.getModel().getProperties().put("ecosystemVersion", p.getVersion());
 				}
 				propertiesManager = CommonMojo.propertiesManager(session, p);
 
@@ -378,7 +372,12 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 			StringBuffer sb = new StringBuffer();
 
 			String propertyKey = m.group(1);
-			String propertyValue = propertiesManager.getPropertyValue(propertyKey, false, false, true);
+			String propertyValue;
+			if (propertyKey.equals("siteURL") || propertyKey.equals("ecosystemURLBase")) {
+				propertyValue = propertiesManager.getPropertyValue(propertyKey, false, true, true);
+			} else {
+				propertyValue = propertiesManager.getPropertyValue(propertyKey, false, false, true);
+			}
 			if (propertyValue != null) {
 			    m.appendReplacement(sb, Matcher.quoteReplacement(propertyValue));
 			}
