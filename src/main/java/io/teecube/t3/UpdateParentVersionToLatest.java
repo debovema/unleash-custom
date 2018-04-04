@@ -68,7 +68,7 @@ public class UpdateParentVersionToLatest implements CDIMojoProcessingStep {
 	@Inject
 	private Logger log;
 
-	private Map<MavenProject, Optional<Document>> cachedPOMs;
+	private Map<MavenProject, Document> cachedPOMs;
 
 	private File tempSettingsFile;
 
@@ -77,7 +77,7 @@ public class UpdateParentVersionToLatest implements CDIMojoProcessingStep {
 		// prepare for rollback
 		this.cachedPOMs = Maps.newHashMap();
 		for (MavenProject p : this.reactorProjects) {
-			this.cachedPOMs.put(p, PomUtil.parsePOM(p));
+			this.cachedPOMs.put(p, PomUtil.parsePOM(p).get());
 		}
 
 		this.log.info("Update parent version in main POM.");
@@ -157,8 +157,8 @@ public class UpdateParentVersionToLatest implements CDIMojoProcessingStep {
 	public void rollback() throws MojoExecutionException {
 		this.log.info("Rollback parent version in main POM.");
 		try {
-			for (Entry<MavenProject, Optional<Document>> entry : this.cachedPOMs.entrySet()) {
-				PomUtil.writePOM(entry.getValue().get(), entry.getKey());
+			for (Entry<MavenProject, Document> entry : this.cachedPOMs.entrySet()) {
+				PomUtil.writePOM(entry.getValue(), entry.getKey());
 			}
 			deleteTempSettings();
 		} catch (Throwable t) {

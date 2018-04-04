@@ -27,6 +27,7 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -91,7 +92,11 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 	@Inject
 	private Logger log;
 
-	private Map<MavenProject, Optional<Document>> cachedPOMs;
+    @Inject
+    @Named("profiles")
+    private List<String> profiles;
+
+    private Map<MavenProject, Document> cachedPOMs;
 
 	private String encoding = "UTF-8";
 
@@ -116,7 +121,7 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 		// prepare for rollback
 		this.cachedPOMs = Maps.newHashMap();
 		for (MavenProject p : this.reactorProjects) {
-			this.cachedPOMs.put(p, PomUtil.parsePOM(p));
+			this.cachedPOMs.put(p, PomUtil.parsePOM(p).get());
 		}
 
 	    // retrieve qualifier (for instance the 1 in genericReplacer[1])
@@ -133,6 +138,9 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 		try {
 			for (MavenProject p : this.reactorProjects) {
 				if (qualifier == 2) {
+                    for (String profile : profiles) {
+                        session.getSettings().addActiveProfile(profile);
+                    }
 					p.getModel().getProperties().put("ecosystemVersion", p.getVersion());
 				}
 				propertiesManager = CommonMojo.propertiesManager(session, p);
@@ -395,8 +403,8 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 	public void rollback() throws MojoExecutionException {
 		this.log.info("Rollback replacement in POMs.");
 		try {
-			for (Entry<MavenProject, Optional<Document>> entry : this.cachedPOMs.entrySet()) {
-				PomUtil.writePOM(entry.getValue().get(), entry.getKey());
+			for (Entry<MavenProject, Document> entry : this.cachedPOMs.entrySet()) {
+				PomUtil.writePOM(entry.getValue(), entry.getKey());
 			}
 			deleteTempSettings();
 		} catch (Throwable t) {
