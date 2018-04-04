@@ -381,8 +381,10 @@ public class GenericReplacerMojo implements CDIMojoProcessingStep {
 
 			String propertyKey = m.group(1);
 			String propertyValue;
-			if (propertyKey.equals("siteURL") || propertyKey.equals("ecosystemURLBase")) {
-				propertyValue = propertiesManager.getPropertyValue(propertyKey, false, true, true);
+			if (propertyKey.equals("siteURL")) {
+                propertyValue = propertiesManager.getPropertyValue(propertyKey, false, true, true);
+            } else if (propertyKey.equals("ecosystemURLBase")) {
+                propertyValue = propertiesManager.getPropertyValue(propertyKey, false, true, false);
 			} else {
 				propertyValue = propertiesManager.getPropertyValue(propertyKey, false, false, true);
 			}
