@@ -9,7 +9,7 @@
 
 	<groupId>io.teecube.t3</groupId>
 	<artifactId>unleash-custom</artifactId>
-	<version>0.0.9</version>
+	<version>0.0.10-SNAPSHOT</version>
 
 	<packaging>jar</packaging>
 
